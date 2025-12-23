@@ -33,6 +33,7 @@ class Spiders(object):
         self._client = client
 
     def get(self, spider: SpiderName,
+            create: Optional[bool] = None,
             params: Optional[Dict[str, Any]] = None) -> "Spider":
         """Get a spider object for a given spider name.
 
@@ -52,6 +53,8 @@ class Spiders(object):
         """
         project = self._client._hsclient.get_project(self.project_id)
         params = params or {}
+        if create is not None:
+            params["create"] = create
         spider_id = project.ids.spider(spider, **params)
         if spider_id is None:
             raise NotFound("Spider {} doesn't exist.".format(spider))

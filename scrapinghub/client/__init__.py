@@ -48,6 +48,9 @@ class ScrapinghubClient(object):
     :param dash_endpoint: (optional) Scrapy Cloud API URL.
         If not provided, it will be read from the ``SHUB_APIURL`` environment
         variable, or fall back to ``"https://app.zyte.com/api/"``.
+    :param endpoint: (optional) Hubstorage API URL.
+        If not provided, it will be read from the ``SHUB_STORAGE`` environment
+        variable, or fall back to ``"https://storage.scrapinghub.com/"``.
     :param hubstorage_options: (optional) Additional arguments for
         :class:`~scrapinghub.hubstorage.HubstorageClient` constructor.
 
@@ -64,6 +67,7 @@ class ScrapinghubClient(object):
 
     def __init__(self, auth: Optional[AuthInput] = None,
                  dash_endpoint: Optional[str] = None,
+                 endpoint: Optional[str] = None,
                  connection_timeout: Optional[float] = DEFAULT_CONNECTION_TIMEOUT,
                  hubstorage_options: Optional[HubstorageClientOptions] = None):
         self.projects = Projects(self)
@@ -73,7 +77,9 @@ class ScrapinghubClient(object):
                                       password=password,
                                       url=dash_endpoint,
                                       connection_timeout=timeout)
-        hubstorage_options = hubstorage_options or {}
+        hubstorage_options = dict(hubstorage_options or {})
+        if endpoint:
+            hubstorage_options["endpoint"] = endpoint
         self._hsclient = HubstorageClient(
             auth=(login, password),
             connection_timeout=timeout,

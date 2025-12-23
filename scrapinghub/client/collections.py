@@ -9,7 +9,7 @@ from ..hubstorage.collectionsrt import Collection as _Collection
 
 from .proxy import _Proxy
 from .utils import update_kwargs
-from .typing import CollectionSummary
+from .typing import CollectionSummary, FilterParam
 
 if TYPE_CHECKING:
     from . import ScrapinghubClient
@@ -222,10 +222,13 @@ class Collection(object):
     def iter(self, key: Optional[Union[str, List[str]]] = None,
              prefix: Optional[str] = None,
              prefixcount: Optional[int] = None,
+             start: Optional[str] = None,
              startts: Optional[int] = None,
              endts: Optional[int] = None,
+             filter: Optional[FilterParam] = None,
              requests_params: Optional[Dict[str, Any]] = None,
-             params: Optional[Dict[str, Any]] = None) -> Iterable[Dict[str, Any]]:
+             params: Optional[Dict[str, Any]] = None
+             ) -> Iterable[Dict[str, Any]]:
         """A method to iterate through collection items.
 
         :param key: a string key or a list of keys to filter with.
@@ -240,7 +243,7 @@ class Collection(object):
         """
         params = params or {}
         update_kwargs(params, key=key, prefix=prefix, prefixcount=prefixcount,
-                      startts=startts, endts=endts,
+                      start=start, startts=startts, endts=endts, filter=filter,
                       requests_params=requests_params)
         params = self._collections._modify_iter_params(params)
         return self._origin._collections.iter_values(
@@ -249,8 +252,10 @@ class Collection(object):
     def list(self, key: Optional[Union[str, List[str]]] = None,
              prefix: Optional[str] = None,
              prefixcount: Optional[int] = None,
+             start: Optional[str] = None,
              startts: Optional[int] = None,
              endts: Optional[int] = None,
+             filter: Optional[FilterParam] = None,
              requests_params: Optional[Dict[str, Any]] = None,
              params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Convenient shortcut to list iter results.
@@ -272,7 +277,7 @@ class Collection(object):
         """
         params = params or {}
         update_kwargs(params, key=key, prefix=prefix, prefixcount=prefixcount,
-                      startts=startts, endts=endts)
+                      start=start, startts=startts, endts=endts, filter=filter)
         return list(self.iter(requests_params=requests_params, params=params))
 
     def create_writer(self, start: int = 0, auth=None, size: int = 1000,

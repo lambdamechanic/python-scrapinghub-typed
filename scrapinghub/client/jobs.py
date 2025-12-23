@@ -372,6 +372,8 @@ class Jobs(object):
 
     def summary(self, state: Optional[JobState] = None,
                 spider: Optional[str] = None,
+                count: Optional[int] = None,
+                jobmeta: Optional[MetaFields] = None,
                 params: Optional[Dict[str, Any]] = None
                 ) -> Union[List[JobSummaryGroup], JobSummaryGroup]:
         """Get jobs summary (optionally by state).
@@ -379,6 +381,8 @@ class Jobs(object):
         :param state: (optional) a string state to filter jobs.
         :param spider: (optional) a spider name (not needed if instantiated
             with :class:`~scrapinghub.client.spiders.Spider`).
+        :param count: (optional) limit amount of results per state.
+        :param jobmeta: (optional) additional metadata fields to return.
         :param params: (optional) additional query params.
         :return: a list of dictionaries of jobs summary
             for a given filter params grouped by job state.
@@ -395,8 +399,10 @@ class Jobs(object):
             {'count': 0, 'name': 'pending', 'summary': []}
         """
         spider_id = self._extract_spider_id(spider)
-        params = params or {}
-        return self._project.jobq.summary(state, spiderid=spider_id, **params)
+        query_params: Dict[str, Any] = {}
+        update_kwargs(query_params, count=count, jobmeta=jobmeta)
+        _merge_legacy_params(query_params, params)
+        return self._project.jobq.summary(state, spiderid=spider_id, **query_params)
 
     def iter_last(self, start: Optional[int] = None,
                   start_after: Optional[int] = None,
@@ -563,10 +569,12 @@ class Job(object):
         """
         self._job.close_writers()
 
-    def start(self, meta: Optional[Dict[str, Any]] = None) -> JobState:
+    def start(self, meta: Optional[Dict[str, Any]] = None,
+              **meta_updates: Any) -> JobState:
         """Move job to running state.
 
         :param meta: (optional) dictionary of meta parameters to update.
+        :param meta_updates: (optional) legacy keyword meta parameters to update.
         :return: a previous string job state.
         :rtype: :class:`str`
 
@@ -575,12 +583,14 @@ class Job(object):
             >>> job.start()
             'pending'
         """
-        return self.update(state='running', meta=meta)
+        return self.update(state='running', meta=meta, **meta_updates)
 
-    def finish(self, meta: Optional[Dict[str, Any]] = None) -> JobState:
+    def finish(self, meta: Optional[Dict[str, Any]] = None,
+               **meta_updates: Any) -> JobState:
         """Move running job to finished state.
 
         :param meta: (optional) dictionary of meta parameters to update.
+        :param meta_updates: (optional) legacy keyword meta parameters to update.
         :return: a previous string job state.
         :rtype: :class:`str`
 
@@ -589,12 +599,14 @@ class Job(object):
             >>> job.finish()
             'running'
         """
-        return self.update(state='finished', meta=meta)
+        return self.update(state='finished', meta=meta, **meta_updates)
 
-    def delete(self, meta: Optional[Dict[str, Any]] = None) -> JobState:
+    def delete(self, meta: Optional[Dict[str, Any]] = None,
+               **meta_updates: Any) -> JobState:
         """Mark finished job for deletion.
 
         :param meta: (optional) dictionary of meta parameters to update.
+        :param meta_updates: (optional) legacy keyword meta parameters to update.
         :return: a previous string job state.
         :rtype: :class:`str`
 
@@ -603,14 +615,16 @@ class Job(object):
             >>> job.delete()
             'finished'
         """
-        return self.update(state='deleted', meta=meta)
+        return self.update(state='deleted', meta=meta, **meta_updates)
 
     def update(self, state: JobState,
-               meta: Optional[Dict[str, Any]] = None) -> JobState:
+               meta: Optional[Dict[str, Any]] = None,
+               **meta_updates: Any) -> JobState:
         """Update job state.
 
         :param state: a new job state.
         :param meta: (optional) dictionary of meta parameters to update.
+        :param meta_updates: (optional) legacy keyword meta parameters to update.
         :return: a previous string job state.
         :rtype: :class:`str`
 
@@ -620,7 +634,9 @@ class Job(object):
             'running'
         """
         try:
-            params = meta or {}
+            params = dict(meta or {})
+            if meta_updates:
+                params.update(meta_updates)
             job = next(self._project.jobq.update(self, state=state, **params))
             return job['prevstate']
         except StopIteration:

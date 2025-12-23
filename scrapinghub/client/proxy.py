@@ -6,6 +6,7 @@ import json
 from typing import Any, Dict, Iterable, List, Optional
 
 from ..hubstorage import ValueTooLarge as _ValueTooLarge
+from .typing import FilterParam, LogLevelName
 from .utils import update_kwargs
 from .exceptions import ValueTooLarge
 
@@ -77,6 +78,13 @@ class _ItemsResourceProxy(_Proxy):
 
     def iter(self, _key: Optional[str] = None,
              count: Optional[int] = None,
+             start: Optional[str] = None,
+             startts: Optional[int] = None,
+             endts: Optional[int] = None,
+             offset: Optional[int] = None,
+             filter: Optional[FilterParam] = None,
+             meta: Optional[Any] = None,
+             level: Optional[LogLevelName] = None,
              params: Optional[Dict[str, Any]] = None
              ) -> Iterable[Dict[str, Any]]:
         """Iterate over elements in collection.
@@ -86,16 +94,28 @@ class _ItemsResourceProxy(_Proxy):
         :rtype: :class:`types.GeneratorType[dict]`
         """
         params = params or {}
-        update_kwargs(params, count=count)
+        update_kwargs(params, count=count, start=start, startts=startts,
+                      endts=endts, offset=offset, filter=filter, meta=meta,
+                      level=level)
         params = self._modify_iter_params(params)
         return self._origin.list(_key, **params)
 
     def list(self, _key: Optional[str] = None,
              count: Optional[int] = None,
+             start: Optional[str] = None,
+             startts: Optional[int] = None,
+             endts: Optional[int] = None,
+             offset: Optional[int] = None,
+             filter: Optional[FilterParam] = None,
+             meta: Optional[Any] = None,
+             level: Optional[LogLevelName] = None,
              params: Optional[Dict[str, Any]] = None
              ) -> List[Dict[str, Any]]:
         """Convenient shortcut to list iter results."""
-        return list(self.iter(_key=_key, count=count, params=params))
+        return list(self.iter(_key=_key, count=count, start=start,
+                              startts=startts, endts=endts, offset=offset,
+                              filter=filter, meta=meta, level=level,
+                              params=params))
 
     def flush(self) -> None:
         """Flush data from writer threads."""
@@ -118,6 +138,13 @@ class _DownloadableProxyMixin(object):
 
     def iter(self, _path: Optional[str] = None,
              count: Optional[int] = None,
+             start: Optional[str] = None,
+             startts: Optional[int] = None,
+             endts: Optional[int] = None,
+             offset: Optional[int] = None,
+             filter: Optional[FilterParam] = None,
+             meta: Optional[Any] = None,
+             level: Optional[LogLevelName] = None,
              requests_params: Optional[Dict[str, Any]] = None,
              apiparams: Optional[Dict[str, Any]] = None
              ) -> Iterable[Dict[str, Any]]:
@@ -128,7 +155,9 @@ class _DownloadableProxyMixin(object):
         :rtype: :class:`collections.abc.Iterable`
         """
         apiparams = apiparams or {}
-        update_kwargs(apiparams, count=count)
+        update_kwargs(apiparams, count=count, start=start, startts=startts,
+                      endts=endts, offset=offset, filter=filter, meta=meta,
+                      level=level)
         apiparams = self._modify_iter_params(apiparams)
         drop_key = '_key' not in (apiparams.get('meta') or [])
         for entry in self._origin.iter_values(
@@ -140,11 +169,20 @@ class _DownloadableProxyMixin(object):
 
     def list(self, _path: Optional[str] = None,
              count: Optional[int] = None,
+             start: Optional[str] = None,
+             startts: Optional[int] = None,
+             endts: Optional[int] = None,
+             offset: Optional[int] = None,
+             filter: Optional[FilterParam] = None,
+             meta: Optional[Any] = None,
+             level: Optional[LogLevelName] = None,
              requests_params: Optional[Dict[str, Any]] = None,
              apiparams: Optional[Dict[str, Any]] = None
              ) -> List[Dict[str, Any]]:
         """Convenient shortcut to list iter results."""
-        return list(self.iter(_path=_path, count=count,
+        return list(self.iter(_path=_path, count=count, start=start,
+                              startts=startts, endts=endts, offset=offset,
+                              filter=filter, meta=meta, level=level,
                               requests_params=requests_params,
                               apiparams=apiparams))
 

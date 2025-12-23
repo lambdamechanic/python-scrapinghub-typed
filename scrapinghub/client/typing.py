@@ -87,6 +87,7 @@ class FrontierQueueBatch(TypedDict, total=False):
 
 FilterCondition = Union[str, List[Any]]
 FilterParam = Union[str, List[FilterCondition]]
+LogLevelName = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "SILENT"]
 
 ParamsDict = Dict[str, Any]
 
