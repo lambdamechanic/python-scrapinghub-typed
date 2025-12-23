@@ -1,7 +1,10 @@
 from __future__ import absolute_import
 
+from typing import Any, Dict, Iterable, List, Optional, Union
+
 from .proxy import _Proxy
 from .utils import parse_job_key, update_kwargs
+from .typing import ActivityEvent
 
 
 class Activity(_Proxy):
@@ -44,22 +47,34 @@ class Activity(_Proxy):
         >>> project.activity.add(events)
 
     """
-    def iter(self, count=None, **params):
+    def iter(self, count: Optional[int] = None,
+             params: Optional[Dict[str, Any]] = None
+             ) -> Iterable[ActivityEvent]:
         """Iterate over activity events.
 
         :param count: limit amount of elements.
+        :param params: (optional) additional query params for the request.
         :return: a generator object over a list of activity event dicts.
         :rtype: :class:`types.GeneratorType[dict]`
         """
+        params = params or {}
         update_kwargs(params, count=count)
         params = self._modify_iter_params(params)
         return self._origin.list(**params)
 
-    def add(self, values, **kwargs):
+    def list(self, count: Optional[int] = None,
+             params: Optional[Dict[str, Any]] = None
+             ) -> List[ActivityEvent]:
+        """Convenient shortcut to list iter results."""
+        return list(self.iter(count=count, params=params))
+
+    def add(self, values: Union[ActivityEvent, List[ActivityEvent]],
+            params: Optional[Dict[str, Any]] = None) -> None:
         """Add new event to the project activity.
 
         :param values: a single event or a list of events, where event is
             represented with a dictionary of ('event', 'job', 'user') keys.
+        :param params: (optional) additional query params for the request.
         """
         if not isinstance(values, list):
             values = list(values)
@@ -69,4 +84,5 @@ class Activity(_Proxy):
             job_key = activity.get('job')
             if job_key and parse_job_key(job_key).project_id != self.key:
                 raise ValueError('Please use same project id')
-        self._origin.post(values, **kwargs)
+        params = params or {}
+        self._origin.post(values, **params)

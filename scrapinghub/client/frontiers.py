@@ -2,6 +2,8 @@ from __future__ import absolute_import
 from functools import partial
 from collections import defaultdict
 
+from typing import Any, Dict, Iterable, List, Optional, TYPE_CHECKING, Union
+
 from six import string_types
 
 from ..hubstorage.frontier import Frontier as _Frontier
@@ -9,6 +11,10 @@ from ..hubstorage.utils import urlpathjoin
 
 from .proxy import _Proxy
 from .utils import update_kwargs
+from .typing import FrontierQueueBatch
+
+if TYPE_CHECKING:
+    from . import ScrapinghubClient
 
 
 class _HSFrontier(_Frontier):
@@ -83,10 +89,10 @@ class Frontiers(_Proxy):
 
         >>> project.frontiers.close()
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super(Frontiers, self).__init__(*args, **kwargs)
 
-    def get(self, name):
+    def get(self, name: str) -> "Frontier":
         """Get a frontier by name.
 
         :param name: a frontier name string.
@@ -95,7 +101,7 @@ class Frontiers(_Proxy):
         """
         return Frontier(self._client, self, name)
 
-    def iter(self):
+    def iter(self) -> Iterable[str]:
         """Iterate through frontiers.
 
         :return: an iterator over frontiers names.
@@ -103,7 +109,7 @@ class Frontiers(_Proxy):
         """
         return iter(self.list())
 
-    def list(self):
+    def list(self) -> List[str]:
         """List frontiers names.
 
         :return: a list of frontiers names.
@@ -112,7 +118,7 @@ class Frontiers(_Proxy):
         return next(self._origin.apiget('list'))
 
     @property
-    def newcount(self):
+    def newcount(self) -> int:
         """Integer amount of new entries added to all frontiers."""
         return sum(self._origin.newcount.values())
 
@@ -157,12 +163,13 @@ class Frontier(object):
         >>> frontier.newcount
         3
     """
-    def __init__(self, client, frontiers, name):
+    def __init__(self, client: "ScrapinghubClient", frontiers: Frontiers,
+                 name: str) -> None:
         self.key = name
         self._client = client
         self._frontiers = frontiers
 
-    def get(self, slot):
+    def get(self, slot: str) -> "FrontierSlot":
         """Get a slot by name.
 
         :return: a frontier slot instance.
@@ -170,7 +177,7 @@ class Frontier(object):
         """
         return FrontierSlot(self._client, self, slot)
 
-    def iter(self):
+    def iter(self) -> Iterable[str]:
         """Iterate through slots.
 
         :return: an iterator over frontier slots names.
@@ -178,7 +185,7 @@ class Frontier(object):
         """
         return iter(self.list())
 
-    def list(self):
+    def list(self) -> List[str]:
         """List all slots.
 
         :return: a list of frontier slots names.
@@ -186,7 +193,7 @@ class Frontier(object):
         """
         return next(self._frontiers._origin.apiget((self.key, 'list')))
 
-    def flush(self):
+    def flush(self) -> None:
         """Flush data for a whole frontier."""
         writers = self._frontiers._origin._writers
         for (fname, _), writer in writers.items():
@@ -194,7 +201,7 @@ class Frontier(object):
                 writer.flush()
 
     @property
-    def newcount(self):
+    def newcount(self) -> int:
         """Integer amount of new entries added to frontier."""
         newcount_values = self._frontiers._origin.newcount
         return sum(v for (frontier, _), v in newcount_values.items()
@@ -250,7 +257,8 @@ class FrontierSlot(object):
 
         >>> slot.delete()
     """
-    def __init__(self, client, frontier, slot):
+    def __init__(self, client: "ScrapinghubClient", frontier: Frontier,
+                 slot: str) -> None:
         self.key = slot
         self._client = client
         self._frontier = frontier
@@ -258,7 +266,7 @@ class FrontierSlot(object):
         self.queue = FrontierSlotQueue(self)
 
     @property
-    def f(self):
+    def f(self) -> "FrontierSlotFingerprints":
         """Shortcut to have quick access to slot fingerprints.
 
         :return: fingerprints collection for the slot.
@@ -267,7 +275,7 @@ class FrontierSlot(object):
         return self.fingerprints
 
     @property
-    def q(self):
+    def q(self) -> "FrontierSlotQueue":
         """Shortcut to have quick access to a slot queue.
 
         :return: queue instance for the slot.
@@ -275,13 +283,13 @@ class FrontierSlot(object):
         """
         return self.queue
 
-    def delete(self):
+    def delete(self) -> None:
         """Delete the slot."""
         origin = self._frontier._frontiers._origin
         origin.delete_slot(self._frontier.key, self.key)
         origin.newcount.pop((self._frontier.key, self.key), None)
 
-    def flush(self):
+    def flush(self) -> None:
         """Flush data for the slot."""
         writers = self._frontier._frontiers._origin._writers
         writer = writers.get((self._frontier.key, self.key))
@@ -289,7 +297,7 @@ class FrontierSlot(object):
             writer.flush()
 
     @property
-    def newcount(self):
+    def newcount(self) -> int:
         """Integer amount of new entries added to slot."""
         newcount_values = self._frontier._frontiers._origin.newcount
         return newcount_values.get((self._frontier.key, self.key), 0)
@@ -298,12 +306,12 @@ class FrontierSlot(object):
 class FrontierSlotFingerprints(object):
     """Representation of request fingerprints collection stored in slot."""
 
-    def __init__(self, slot):
+    def __init__(self, slot: FrontierSlot) -> None:
         self.key = slot.key
         self._frontier = slot._frontier
         self._slot = slot
 
-    def add(self, fps):
+    def add(self, fps: Iterable[str]) -> None:
         """Add new fingerprints to slot.
 
         :param fps: a list of string fingerprints to add.
@@ -316,7 +324,8 @@ class FrontierSlotFingerprints(object):
         for fp in fps:
             writer.write({'fp': fp})
 
-    def iter(self, **params):
+    def iter(self, params: Optional[Dict[str, Any]] = None
+             ) -> Iterable[str]:
         """Iterate through fingerprints in the slot.
 
         :param params: (optional) additional query params for the request.
@@ -325,33 +334,37 @@ class FrontierSlotFingerprints(object):
         """
         origin = self._frontier._frontiers._origin
         path = (self._frontier.key, 's', self.key, 'f')
+        params = params or {}
         for fp in origin.apiget(path, params=params):
             yield fp.get('fp')
 
-    def list(self, **params):
+    def list(self, params: Optional[Dict[str, Any]] = None
+             ) -> List[str]:
         """List fingerprints in the slot.
 
         :param params: (optional) additional query params for the request.
         :return: a list of fingerprints.
         :rtype: :class:`list[str]`
         """
-        return list(self.iter(**params))
+        return list(self.iter(params=params))
 
 
 class FrontierSlotQueue(object):
     """Representation of request batches queue stored in slot."""
 
-    def __init__(self, slot):
+    def __init__(self, slot: FrontierSlot) -> None:
         self.key = slot.key
         self._frontier = slot._frontier
         self._slot = slot
 
-    def add(self, fps):
+    def add(self, fps: Iterable[Dict[str, Any]]) -> Any:
         """Add requests to the queue."""
         origin = self._frontier._frontiers._origin
         return origin.add(self._frontier.key, self.key, fps)
 
-    def iter(self, mincount=None, **params):
+    def iter(self, mincount: Optional[int] = None,
+             params: Optional[Dict[str, Any]] = None
+             ) -> Iterable[FrontierQueueBatch]:
         """Iterate through batches in the queue.
 
         :param mincount: (optional) limit results with min amount of requests.
@@ -362,10 +375,13 @@ class FrontierSlotQueue(object):
         """
         origin = self._frontier._frontiers._origin
         path = (self._frontier.key, 's', self.key, 'q')
+        params = params or {}
         update_kwargs(params, mincount=mincount)
         return origin.apiget(path, params=params)
 
-    def list(self, mincount=None, **params):
+    def list(self, mincount: Optional[int] = None,
+             params: Optional[Dict[str, Any]] = None
+             ) -> List[FrontierQueueBatch]:
         """List request batches in the queue.
 
         :param mincount: (optional) limit results with min amount of requests.
@@ -374,9 +390,9 @@ class FrontierSlotQueue(object):
             is represented with a dict with ('id', 'requests') field.
         :rtype: :class:`list[dict]`
         """
-        return list(self.iter(mincount=mincount, **params))
+        return list(self.iter(mincount=mincount, params=params))
 
-    def delete(self, ids):
+    def delete(self, ids: Union[str, List[str]]) -> Any:
         """Delete request batches from the queue."""
         origin = self._frontier._frontiers._origin
         return origin.delete(self._frontier.key, self.key, ids)

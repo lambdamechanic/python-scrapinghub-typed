@@ -3,6 +3,8 @@ from __future__ import absolute_import
 import json
 import logging
 
+from typing import Any, Dict, Optional
+
 from .proxy import _ItemsResourceProxy, _DownloadableProxyMixin
 from .utils import LogLevel
 
@@ -49,7 +51,9 @@ class Logs(_DownloadableProxyMixin, _ItemsResourceProxy):
             'time': 1486375511188,
         }]
     """
-    def log(self, message, level=logging.INFO, ts=None, **other):
+    def log(self, message: str, level: int = logging.INFO,
+            ts: Optional[int] = None,
+            other: Optional[Dict[str, Any]] = None) -> None:
         """Base method to write a log entry.
 
         :param message: a string message.
@@ -57,26 +61,35 @@ class Logs(_DownloadableProxyMixin, _ItemsResourceProxy):
         :param ts: (optional) UNIX timestamp in milliseconds.
         :param other: other optional kwargs.
         """
+        other = other or {}
         self._origin.log(message, level=level, ts=ts, **other)
 
-    def debug(self, message, **other):
+    def debug(self, message: str,
+              other: Optional[Dict[str, Any]] = None) -> None:
         """Log a message with DEBUG level."""
+        other = other or {}
         self._origin.debug(message, **other)
 
-    def info(self, message, **other):
+    def info(self, message: str,
+             other: Optional[Dict[str, Any]] = None) -> None:
         """Log a message with INFO level."""
+        other = other or {}
         self._origin.info(message, **other)
 
-    def warn(self, message, **other):
+    def warn(self, message: str,
+             other: Optional[Dict[str, Any]] = None) -> None:
         """Log a message with WARN level."""
+        other = other or {}
         self._origin.warn(message, **other)
     warning = warn
 
-    def error(self, message, **other):
+    def error(self, message: str,
+              other: Optional[Dict[str, Any]] = None) -> None:
         """Log a message with ERROR level."""
+        other = other or {}
         self._origin.error(message, **other)
 
-    def batch_write_start(self):
+    def batch_write_start(self) -> int:
         """Override to set a start parameter when commencing writing."""
         return self._origin.batch_write_start()
 

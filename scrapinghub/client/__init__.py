@@ -1,10 +1,17 @@
 from scrapinghub import Connection as _Connection
 from scrapinghub import HubstorageClient as _HubstorageClient
 
+from typing import Optional, TYPE_CHECKING
+
 from .exceptions import _wrap_http_errors
 from .projects import Projects
+from .typing import AuthInput, HubstorageClientOptions, JobKey, ProjectIdInput
 from .utils import parse_auth
 from .utils import parse_project_id, parse_job_key
+
+if TYPE_CHECKING:
+    from .jobs import Job
+    from .projects import Project
 
 
 __all__ = ['ScrapinghubClient']
@@ -41,7 +48,7 @@ class ScrapinghubClient(object):
     :param dash_endpoint: (optional) Scrapy Cloud API URL.
         If not provided, it will be read from the ``SHUB_APIURL`` environment
         variable, or fall back to ``"https://app.zyte.com/api/"``.
-    :param kwargs: (optional) Additional arguments for
+    :param hubstorage_options: (optional) Additional arguments for
         :class:`~scrapinghub.hubstorage.HubstorageClient` constructor.
 
     :ivar projects: projects collection,
@@ -55,8 +62,10 @@ class ScrapinghubClient(object):
         <scrapinghub.client.ScrapinghubClient at 0x1047af2e8>
     """
 
-    def __init__(self, auth=None, dash_endpoint=None,
-                 connection_timeout=DEFAULT_CONNECTION_TIMEOUT, **kwargs):
+    def __init__(self, auth: Optional[AuthInput] = None,
+                 dash_endpoint: Optional[str] = None,
+                 connection_timeout: Optional[float] = DEFAULT_CONNECTION_TIMEOUT,
+                 hubstorage_options: Optional[HubstorageClientOptions] = None):
         self.projects = Projects(self)
         login, password = parse_auth(auth)
         timeout = connection_timeout or DEFAULT_CONNECTION_TIMEOUT
@@ -64,10 +73,14 @@ class ScrapinghubClient(object):
                                       password=password,
                                       url=dash_endpoint,
                                       connection_timeout=timeout)
-        self._hsclient = HubstorageClient(auth=(login, password),
-                                          connection_timeout=timeout, **kwargs)
+        hubstorage_options = hubstorage_options or {}
+        self._hsclient = HubstorageClient(
+            auth=(login, password),
+            connection_timeout=timeout,
+            **hubstorage_options
+        )
 
-    def get_project(self, project_id):
+    def get_project(self, project_id: ProjectIdInput) -> "Project":
         """Get :class:`scrapinghub.client.projects.Project` instance with
         a given project id.
 
@@ -85,7 +98,7 @@ class ScrapinghubClient(object):
         """
         return self.projects.get(parse_project_id(project_id))
 
-    def get_job(self, job_key):
+    def get_job(self, job_key: JobKey) -> "Job":
         """Get :class:`~scrapinghub.client.jobs.Job` with a given job key.
 
         :param job_key: job key string in format ``project_id/spider_id/job_id``,
@@ -102,7 +115,7 @@ class ScrapinghubClient(object):
         project_id = parse_job_key(job_key).project_id
         return self.projects.get(project_id).jobs.get(job_key)
 
-    def close(self, timeout=None):
+    def close(self, timeout: Optional[float] = None) -> None:
         """Close client instance.
 
         :param timeout: (optional) float timeout secs to stop gracefully.

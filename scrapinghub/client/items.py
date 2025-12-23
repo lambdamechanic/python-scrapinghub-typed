@@ -2,6 +2,8 @@ from __future__ import absolute_import
 
 import sys
 
+from typing import Any, Dict, Iterable, List, Optional
+
 from .proxy import _ItemsResourceProxy, _DownloadableProxyMixin
 
 
@@ -90,7 +92,11 @@ class Items(_DownloadableProxyMixin, _ItemsResourceProxy):
             params['start'] = '{}/{}'.format(self.key, offset)
         return params
 
-    def list_iter(self, chunksize=1000, *args, **kwargs):
+    def list_iter(self, chunksize: int = 1000, start: int = 0,
+                  count: int = sys.maxsize,
+                  apiparams: Optional[Dict[str, Any]] = None,
+                  requests_params: Optional[Dict[str, Any]] = None
+                  ) -> Iterable[List[Dict[str, Any]]]:
         """An alternative interface for reading items by returning them
         as a generator which yields lists of items sized as `chunksize`.
 
@@ -109,9 +115,7 @@ class Items(_DownloadableProxyMixin, _ItemsResourceProxy):
         :return: an iterator over items, yielding lists of items.
         :rtype: :class:`collections.abc.Iterable`
         """
-
-        start = kwargs.pop("start", 0)
-        count = kwargs.pop("count", sys.maxsize)
+        apiparams = dict(apiparams or {})
         processed = 0
 
         while True:
@@ -120,7 +124,9 @@ class Items(_DownloadableProxyMixin, _ItemsResourceProxy):
                 chunksize = count - processed
             items = [
                 item for item in self.iter(
-                    count=chunksize, start=next_key, *args, **kwargs)
+                    count=chunksize,
+                    requests_params=requests_params,
+                    apiparams=dict(apiparams, start=next_key))
             ]
             yield items
             processed += len(items)

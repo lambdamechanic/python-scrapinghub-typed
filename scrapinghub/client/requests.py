@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+from typing import Any, Optional
+
 from .proxy import _ItemsResourceProxy, _DownloadableProxyMixin
 
 
@@ -41,7 +43,9 @@ class Requests(_DownloadableProxyMixin, _ItemsResourceProxy):
             'url': 'https://example.com'
         }]
     """
-    def add(self, url, status, method, rs, duration, ts, parent=None, fp=None):
+    def add(self, url: str, status: int, method: str, rs: int, duration: int,
+            ts: int, parent: Optional[str] = None,
+            fp: Optional[str] = None) -> Any:
         """ Add a new requests.
 
         :param url: string url for the request.

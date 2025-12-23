@@ -2,6 +2,8 @@ from __future__ import absolute_import
 
 import json
 
+from typing import Any, Dict, Iterable, List, Optional, TYPE_CHECKING, Union
+
 from ..hubstorage.job import JobMeta as _JobMeta
 from ..hubstorage.job import Items as _Items
 from ..hubstorage.job import Logs as _Logs
@@ -14,7 +16,11 @@ from .requests import Requests
 from .samples import Samples
 from .exceptions import NotFound, BadRequest, DuplicateJobError
 from .proxy import _MappingProxy
-from .utils import get_tags_for_update, parse_job_key, update_kwargs
+from .utils import _merge_legacy_params, get_tags_for_update, parse_job_key, update_kwargs
+from .typing import JobKey, JobState, JobSummary, JobSummaryGroup, MetaFields, TagInput, TagList, TimestampMs
+
+if TYPE_CHECKING:
+    from .spiders import Spider
 
 
 class Jobs(object):
@@ -37,14 +43,19 @@ class Jobs(object):
         <scrapinghub.client.jobs.Jobs at 0x104767e80>
     """
 
-    def __init__(self, client, project_id, spider=None):
+    def __init__(self, client, project_id, spider: Optional["Spider"] = None) -> None:
         self.project_id = project_id
         self.spider = spider
         self._client = client
         self._project = client._hsclient.get_project(project_id)
 
-    def count(self, spider=None, state=None, has_tag=None, lacks_tag=None,
-              startts=None, endts=None, **params):
+    def count(self, spider: Optional[str] = None,
+              state: Optional[Union[JobState, List[JobState]]] = None,
+              has_tag: Optional[TagInput] = None,
+              lacks_tag: Optional[TagInput] = None,
+              startts: Optional[TimestampMs] = None,
+              endts: Optional[TimestampMs] = None,
+              params: Optional[Dict[str, Any]] = None) -> int:
         """Count jobs with a given set of filters.
 
         :param spider: (optional) filter by spider name.
@@ -57,7 +68,7 @@ class Jobs(object):
             in milliseconds.
         :param endts: (optional) UNIX timestamp at which to end results,
             in milliseconds.
-        :param params: (optional) other filter params.
+        :param params: (optional) additional filter params.
 
         :return: jobs count.
         :rtype: :class:`int`
@@ -73,13 +84,17 @@ class Jobs(object):
             >>> project.jobs.count(spider='spider2', state='finished')
             2
         """
-        update_kwargs(params, spider=spider, state=state, has_tag=has_tag,
+        query_params: Dict[str, Any] = {}
+        update_kwargs(query_params, spider=spider, state=state, has_tag=has_tag,
                       lacks_tag=lacks_tag, startts=startts, endts=endts)
+        _merge_legacy_params(query_params, params)
         if self.spider:
-            params['spider'] = self.spider.name
-        return next(self._project.jobq.apiget(('count',), params=params))
+            query_params['spider'] = self.spider.name
+        return next(self._project.jobq.apiget(('count',), params=query_params))
 
-    def cancel(self, keys=None, count=None, **params):
+    def cancel(self, keys: Optional[List[JobKey]] = None,
+               count: Optional[int] = None,
+               params: Optional[Dict[str, Any]] = None) -> Dict[str, int]:
         """Cancel a list of jobs using the keys provided.
 
         :param keys: (optional) a list of strings containing the job keys in
@@ -102,9 +117,11 @@ class Jobs(object):
             >>> project.jobs.cancel(count=100)
             {'count': 100}
         """
-        update_kwargs(params, count=count, keys=keys)
-        keys = params.get('keys')
-        count = params.get('count')
+        query_params: Dict[str, Any] = {}
+        update_kwargs(query_params, count=count, keys=keys)
+        _merge_legacy_params(query_params, params)
+        keys = query_params.get('keys')
+        count = query_params.get('count')
 
         if keys and count:
             raise ValueError("keys and count can't be defined simultaneously")
@@ -137,9 +154,17 @@ class Jobs(object):
             # may raise Forbidden
             return self._project.jobq.apipost("cancel?count=%s" % count)
 
-    def iter(self, count=None, start=None, spider=None, state=None,
-             has_tag=None, lacks_tag=None, startts=None, endts=None,
-             meta=None, **params):
+    def iter(self, count: Optional[int] = None,
+             start: Optional[int] = None,
+             spider: Optional[str] = None,
+             state: Optional[Union[JobState, List[JobState]]] = None,
+             has_tag: Optional[TagInput] = None,
+             lacks_tag: Optional[TagInput] = None,
+             startts: Optional[TimestampMs] = None,
+             endts: Optional[TimestampMs] = None,
+             meta: Optional[MetaFields] = None,
+             params: Optional[Dict[str, Any]] = None
+             ) -> Iterable[JobSummary]:
         """Iterate over jobs collection for a given set of params.
 
         :param count: (optional) limit amount of returned jobs.
@@ -156,7 +181,7 @@ class Jobs(object):
             in millisecons.
         :param meta: (optional) request for additional fields, a single
             field name or a list of field names to return.
-        :param params: (optional) other filter params.
+        :param params: (optional) additional filter params.
 
         :return: a generator object over a list of dictionaries of jobs summary
             for a given filter params.
@@ -201,16 +226,25 @@ class Jobs(object):
             >>> jobs_summary = project.jobs.iter(
             ...     spider='spider2', state='finished', count=3)
         """
-        update_kwargs(params, count=count, start=start, jobmeta=meta,
+        query_params: Dict[str, Any] = {}
+        update_kwargs(query_params, count=count, start=start, jobmeta=meta,
                       spider=spider, state=state, has_tag=has_tag,
                       lacks_tag=lacks_tag, startts=startts, endts=endts)
+        _merge_legacy_params(query_params, params)
         if self.spider:
-            params['spider'] = self.spider.name
-        return self._project.jobq.list(**params)
+            query_params['spider'] = self.spider.name
+        return self._project.jobq.list(**query_params)
 
-    def list(self, count=None, start=None, spider=None, state=None,
-             has_tag=None, lacks_tag=None, startts=None, endts=None,
-             meta=None, **params):
+    def list(self, count: Optional[int] = None,
+             start: Optional[int] = None,
+             spider: Optional[str] = None,
+             state: Optional[Union[JobState, List[JobState]]] = None,
+             has_tag: Optional[TagInput] = None,
+             lacks_tag: Optional[TagInput] = None,
+             startts: Optional[TimestampMs] = None,
+             endts: Optional[TimestampMs] = None,
+             meta: Optional[MetaFields] = None,
+             params: Optional[Dict[str, Any]] = None) -> List[JobSummary]:
         """Convenient shortcut to list iter results.
 
         :param count: (optional) limit amount of returned jobs.
@@ -227,7 +261,7 @@ class Jobs(object):
             in milliseconds.
         :param meta: (optional) request for additional fields, a single
             field name or a list of field names to return.
-        :param params: (optional) other filter params.
+        :param params: (optional) additional filter params.
 
         :return: list of dictionaries of jobs summary for a given filter params.
         :rtype: :class:`list[dict]`
@@ -242,14 +276,21 @@ class Jobs(object):
         # FIXME we double-check the params here, is there a better way?
         # Simpler way would be to keep **params only here and point to iter(),
         # but then we loose hinting kwargs for list() method.
-        update_kwargs(params, count=count, start=start, meta=meta,
-                      spider=spider, state=state, has_tag=has_tag,
-                      lacks_tag=lacks_tag, startts=startts, endts=endts)
-        return list(self.iter(**params))
+        return list(self.iter(count=count, start=start, spider=spider,
+                              state=state, has_tag=has_tag,
+                              lacks_tag=lacks_tag, startts=startts,
+                              endts=endts, meta=meta, params=params))
 
-    def run(self, spider=None, units=None, priority=None, meta=None,
-            add_tag=None, job_args=None, job_settings=None, cmd_args=None,
-            environment=None, **params):
+    def run(self, spider: Optional[str] = None,
+            units: Optional[int] = None,
+            priority: Optional[int] = None,
+            meta: Optional[Dict[str, Any]] = None,
+            add_tag: Optional[TagInput] = None,
+            job_args: Optional[Dict[str, Any]] = None,
+            job_settings: Optional[Dict[str, Any]] = None,
+            cmd_args: Optional[str] = None,
+            environment: Optional[Dict[str, Any]] = None,
+            params: Optional[Dict[str, Any]] = None) -> "Job":
         """Schedule a new job and returns its job key.
 
         :param spider: a spider name string
@@ -262,7 +303,7 @@ class Jobs(object):
         :param job_settings: (optional) a dictionary with job settings.
         :param cmd_args: (optional) a string with script command args.
         :param environment: (option) a dictionary with custom environment
-        :param params: (optional) additional keyword args.
+        :param params: (optional) additional query params.
 
         :return: a job instance, representing the scheduled job.
         :rtype: :class:`Job`
@@ -277,6 +318,7 @@ class Jobs(object):
         """
         if not spider and not self.spider:
             raise ValueError('Please provide `spider` name')
+        params = dict(params or {})
         if job_args:
             if not isinstance(job_args, dict):
                 raise ValueError("job_args should be a dictionary")
@@ -302,7 +344,7 @@ class Jobs(object):
             raise
         return Job(self._client, response['jobid'])
 
-    def get(self, job_key):
+    def get(self, job_key: JobKey) -> "Job":
         """Get a :class:`Job` with a given job_key.
 
         :param job_key: a string job key.
@@ -328,13 +370,16 @@ class Jobs(object):
             raise ValueError('Please use same spider id')
         return Job(self._client, str(job_key))
 
-    def summary(self, state=None, spider=None, **params):
+    def summary(self, state: Optional[JobState] = None,
+                spider: Optional[str] = None,
+                params: Optional[Dict[str, Any]] = None
+                ) -> Union[List[JobSummaryGroup], JobSummaryGroup]:
         """Get jobs summary (optionally by state).
 
         :param state: (optional) a string state to filter jobs.
         :param spider: (optional) a spider name (not needed if instantiated
             with :class:`~scrapinghub.client.spiders.Spider`).
-        :param params: (optional) additional keyword args.
+        :param params: (optional) additional query params.
         :return: a list of dictionaries of jobs summary
             for a given filter params grouped by job state.
         :rtype: :class:`list[dict]`
@@ -350,11 +395,15 @@ class Jobs(object):
             {'count': 0, 'name': 'pending', 'summary': []}
         """
         spider_id = self._extract_spider_id(spider)
-        return self._project.jobq.summary(
-            state, spiderid=spider_id, **params)
+        params = params or {}
+        return self._project.jobq.summary(state, spiderid=spider_id, **params)
 
-    def iter_last(self, start=None, start_after=None, count=None,
-                  spider=None, **params):
+    def iter_last(self, start: Optional[int] = None,
+                  start_after: Optional[int] = None,
+                  count: Optional[int] = None,
+                  spider: Optional[str] = None,
+                  params: Optional[Dict[str, Any]] = None
+                  ) -> Iterable[JobSummary]:
         """Iterate through last jobs for each spider.
 
         :param start: (optional)
@@ -391,8 +440,10 @@ class Jobs(object):
               'version': 'some-version'}]
         """
         spider_id = self._extract_spider_id(spider)
-        update_kwargs(params, start=start, startafter=start_after, count=count)
-        return self._project.spiders.lastjobsummary(spider_id, **params)
+        query_params: Dict[str, Any] = {}
+        update_kwargs(query_params, start=start, startafter=start_after, count=count)
+        _merge_legacy_params(query_params, params)
+        return self._project.spiders.lastjobsummary(spider_id, **query_params)
 
     def _extract_spider_id(self, spider):
         if not spider and self.spider:
@@ -405,7 +456,9 @@ class Jobs(object):
             return spider_id
         return None
 
-    def update_tags(self, add=None, remove=None, spider=None):
+    def update_tags(self, add: Optional[TagList] = None,
+                    remove: Optional[TagList] = None,
+                    spider: Optional[str] = None) -> Optional[int]:
         """Update tags for all existing spider jobs.
 
         :param add: (optional) list of tags to add to selected jobs.
@@ -469,7 +522,7 @@ class Job(object):
         >>> job.metadata.get('state')
         'finished'
     """
-    def __init__(self, client, job_key):
+    def __init__(self, client, job_key: JobKey) -> None:
         self.project_id = parse_job_key(job_key).project_id
         self.key = job_key
 
@@ -485,7 +538,8 @@ class Job(object):
 
         self.metadata = JobMeta(_JobMeta, client, job_key)
 
-    def update_tags(self, add=None, remove=None):
+    def update_tags(self, add: Optional[TagList] = None,
+                    remove: Optional[TagList] = None) -> None:
         """Partially update job tags.
 
         It provides a convenient way to mark specific jobs (for better search,
@@ -502,17 +556,17 @@ class Job(object):
         params.update({'project': self.project_id, 'job': self.key})
         self._client._connection._post('jobs_update', 'json', params)
 
-    def close_writers(self):
+    def close_writers(self) -> None:
         """Stop job batch writers threads gracefully.
 
         Called on :meth:`ScrapinghubClient.close` method.
         """
         self._job.close_writers()
 
-    def start(self, **params):
+    def start(self, meta: Optional[Dict[str, Any]] = None) -> JobState:
         """Move job to running state.
 
-        :param params: (optional) keyword meta parameters to update.
+        :param meta: (optional) dictionary of meta parameters to update.
         :return: a previous string job state.
         :rtype: :class:`str`
 
@@ -521,12 +575,12 @@ class Job(object):
             >>> job.start()
             'pending'
         """
-        return self.update(state='running', **params)
+        return self.update(state='running', meta=meta)
 
-    def finish(self, **params):
+    def finish(self, meta: Optional[Dict[str, Any]] = None) -> JobState:
         """Move running job to finished state.
 
-        :param params: (optional) keyword meta parameters to update.
+        :param meta: (optional) dictionary of meta parameters to update.
         :return: a previous string job state.
         :rtype: :class:`str`
 
@@ -535,12 +589,12 @@ class Job(object):
             >>> job.finish()
             'running'
         """
-        return self.update(state='finished', **params)
+        return self.update(state='finished', meta=meta)
 
-    def delete(self, **params):
+    def delete(self, meta: Optional[Dict[str, Any]] = None) -> JobState:
         """Mark finished job for deletion.
 
-        :param params: (optional) keyword meta parameters to update.
+        :param meta: (optional) dictionary of meta parameters to update.
         :return: a previous string job state.
         :rtype: :class:`str`
 
@@ -549,13 +603,14 @@ class Job(object):
             >>> job.delete()
             'finished'
         """
-        return self.update(state='deleted', **params)
+        return self.update(state='deleted', meta=meta)
 
-    def update(self, state, **params):
+    def update(self, state: JobState,
+               meta: Optional[Dict[str, Any]] = None) -> JobState:
         """Update job state.
 
         :param state: a new job state.
-        :param params: (optional) keyword meta parameters to update.
+        :param meta: (optional) dictionary of meta parameters to update.
         :return: a previous string job state.
         :rtype: :class:`str`
 
@@ -565,12 +620,13 @@ class Job(object):
             'running'
         """
         try:
+            params = meta or {}
             job = next(self._project.jobq.update(self, state=state, **params))
             return job['prevstate']
         except StopIteration:
             raise NotFound("Job {} doesn't exist".format(self.key))
 
-    def cancel(self):
+    def cancel(self) -> None:
         """Schedule a running job for cancellation.
 
         Usage::

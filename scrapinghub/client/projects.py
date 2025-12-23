@@ -1,5 +1,7 @@
 from __future__ import absolute_import
 
+from typing import Any, Dict, Iterable, List, Optional, TYPE_CHECKING, Union
+
 from ..hubstorage.activity import Activity as _Activity
 from ..hubstorage.collectionsrt import Collections as _Collections
 from ..hubstorage.project import Settings as _Settings
@@ -11,6 +13,10 @@ from .jobs import Jobs
 from .proxy import _MappingProxy
 from .spiders import Spiders
 from .utils import parse_project_id
+from .typing import JobState, ProjectIdInput, ProjectSummary
+
+if TYPE_CHECKING:
+    from . import ScrapinghubClient
 
 
 class Projects(object):
@@ -26,10 +32,10 @@ class Projects(object):
         <scrapinghub.client.projects.Projects at 0x1047ada58>
     """
 
-    def __init__(self, client):
+    def __init__(self, client: "ScrapinghubClient") -> None:
         self._client = client
 
-    def get(self, project_id):
+    def get(self, project_id: ProjectIdInput) -> "Project":
         """Get project for a given project id.
 
         :param project_id: integer or string numeric project id.
@@ -44,7 +50,7 @@ class Projects(object):
         """
         return Project(self._client, parse_project_id(project_id))
 
-    def list(self):
+    def list(self) -> List[int]:
         """Get list of projects available to current user.
 
         :return: a list of project ids.
@@ -57,7 +63,7 @@ class Projects(object):
         """
         return self._client._connection.project_ids()
 
-    def iter(self):
+    def iter(self) -> Iterable[int]:
         """Iterate through list of projects available to current user.
 
         Provided for the sake of API consistency.
@@ -67,10 +73,13 @@ class Projects(object):
         """
         return iter(self.list())
 
-    def summary(self, state=None, **params):
+    def summary(self, state: Optional[Union[JobState, List[JobState]]] = None,
+                params: Optional[Dict[str, Any]] = None
+                ) -> List[ProjectSummary]:
         """Get short summaries for all available user projects.
 
         :param state: a string state or a list of states.
+        :param params: (optional) additional query params for the request.
         :return: a list of dictionaries: each dictionary represents a project
             summary (amount of pending/running/finished jobs and a flag if it
             has a capacity to run new jobs).
@@ -90,6 +99,7 @@ class Projects(object):
               'project': 456,
               'running': 2}]
         """
+        params = params or {}
         if state:
             params['state'] = state
         return self._client._hsclient.projects.jobsummaries(**params)
@@ -120,7 +130,7 @@ class Project(object):
         '123'
     """
 
-    def __init__(self, client, project_id):
+    def __init__(self, client: "ScrapinghubClient", project_id: ProjectIdInput) -> None:
         self.key = str(project_id)
         self._client = client
 

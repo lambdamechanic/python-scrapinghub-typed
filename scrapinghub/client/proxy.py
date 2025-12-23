@@ -3,6 +3,8 @@ from __future__ import absolute_import
 import six
 import json
 
+from typing import Any, Dict, Iterable, List, Optional
+
 from ..hubstorage import ValueTooLarge as _ValueTooLarge
 from .utils import update_kwargs
 from .exceptions import ValueTooLarge
@@ -28,7 +30,7 @@ class _Proxy(object):
         self._client = client
         self._origin = cls(client._hsclient, key)
 
-    def list(self, *args, **kwargs):
+    def list(self) -> List[Any]:
         """Convenient shortcut to list iter results.
 
         Please note that :meth:`list` method can use a lot of memory and for a
@@ -36,7 +38,7 @@ class _Proxy(object):
         :meth:`iter` method (all params and available filters are same for both
         methods).
         """
-        return list(self.iter(*args, **kwargs))
+        return list(self.iter())
 
     def _modify_iter_params(self, params):
         """A helper to modify iter*() params on-the-fly.
@@ -52,16 +54,18 @@ class _Proxy(object):
 
 class _ItemsResourceProxy(_Proxy):
 
-    def get(self, key, **params):
+    def get(self, key: str,
+            params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Get element from collection.
 
         :param key: element key.
         :return: a dictionary with element data.
         :rtype: :class:`dict`
         """
+        params = params or {}
         return self._origin.get(key, **params)
 
-    def write(self, item):
+    def write(self, item: Dict[str, Any]) -> None:
         """Write new element to collection.
 
         :param item: element data dict to write.
@@ -71,22 +75,33 @@ class _ItemsResourceProxy(_Proxy):
         except _ValueTooLarge as exc:
             raise ValueTooLarge(str(exc))
 
-    def iter(self, _key=None, count=None, **params):
+    def iter(self, _key: Optional[str] = None,
+             count: Optional[int] = None,
+             params: Optional[Dict[str, Any]] = None
+             ) -> Iterable[Dict[str, Any]]:
         """Iterate over elements in collection.
 
         :param count: limit amount of elements.
         :return: a generator object over a list of element dictionaries.
         :rtype: :class:`types.GeneratorType[dict]`
         """
+        params = params or {}
         update_kwargs(params, count=count)
         params = self._modify_iter_params(params)
         return self._origin.list(_key, **params)
 
-    def flush(self):
+    def list(self, _key: Optional[str] = None,
+             count: Optional[int] = None,
+             params: Optional[Dict[str, Any]] = None
+             ) -> List[Dict[str, Any]]:
+        """Convenient shortcut to list iter results."""
+        return list(self.iter(_key=_key, count=count, params=params))
+
+    def flush(self) -> None:
         """Flush data from writer threads."""
         self._origin.flush()
 
-    def stats(self):
+    def stats(self) -> Dict[str, Any]:
         """Get resource stats.
 
         :return: a dictionary with stats data.
@@ -94,20 +109,25 @@ class _ItemsResourceProxy(_Proxy):
         """
         return self._origin.stats()
 
-    def close(self, block=True):
+    def close(self, block: bool = True) -> None:
         """Close writers one-by-one."""
         self._origin.close(block)
 
 
 class _DownloadableProxyMixin(object):
 
-    def iter(self, _path=None, count=None, requests_params=None, **apiparams):
+    def iter(self, _path: Optional[str] = None,
+             count: Optional[int] = None,
+             requests_params: Optional[Dict[str, Any]] = None,
+             apiparams: Optional[Dict[str, Any]] = None
+             ) -> Iterable[Dict[str, Any]]:
         """A general method to iterate through elements.
 
         :param count: limit amount of elements.
         :return: an iterator over elements list.
         :rtype: :class:`collections.abc.Iterable`
         """
+        apiparams = apiparams or {}
         update_kwargs(apiparams, count=count)
         apiparams = self._modify_iter_params(apiparams)
         drop_key = '_key' not in (apiparams.get('meta') or [])
@@ -118,20 +138,30 @@ class _DownloadableProxyMixin(object):
                 entry.pop('_key')
             yield entry
 
+    def list(self, _path: Optional[str] = None,
+             count: Optional[int] = None,
+             requests_params: Optional[Dict[str, Any]] = None,
+             apiparams: Optional[Dict[str, Any]] = None
+             ) -> List[Dict[str, Any]]:
+        """Convenient shortcut to list iter results."""
+        return list(self.iter(_path=_path, count=count,
+                              requests_params=requests_params,
+                              apiparams=apiparams))
+
 
 class _MappingProxy(_Proxy):
     """A helper class to support basic get/set interface for dict-like
     collections of elements.
     """
 
-    def get(self, key):
+    def get(self, key: str):
         """Get element value by key.
 
         :param key: a string key
         """
         return next(self._origin.apiget(key))
 
-    def set(self, key, value):
+    def set(self, key: str, value: Any) -> None:
         """Set element value.
 
         :param key: a string key
@@ -139,7 +169,7 @@ class _MappingProxy(_Proxy):
         """
         self._origin.apipost(key, data=json.dumps(value), is_idempotent=True)
 
-    def update(self, values):
+    def update(self, values: Dict[str, Any]) -> None:
         """Update multiple elements at once.
 
         The method provides convenient interface for partial updates.
@@ -154,14 +184,14 @@ class _MappingProxy(_Proxy):
                                  if k not in self._origin.ignore_fields},
                              is_idempotent=True)
 
-    def delete(self, key):
+    def delete(self, key: str) -> None:
         """Delete element by key.
 
         :param key: a string key
         """
         self._origin.apidelete(key)
 
-    def iter(self):
+    def iter(self) -> Iterable[Any]:
         """Iterate through key/value pairs.
 
         :return: an iterator over key/value pairs.

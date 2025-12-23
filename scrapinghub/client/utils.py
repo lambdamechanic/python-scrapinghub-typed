@@ -88,6 +88,13 @@ def update_kwargs(kwargs, **params):
                    for k, v in params.items() if v is not None})
 
 
+def _merge_legacy_params(params, legacy_params):
+    """Merge legacy kwargs-style params into explicit params dict."""
+    if legacy_params:
+        params.update(legacy_params)
+    return params
+
+
 def parse_auth(auth):
     """Parse authentication token.
 
